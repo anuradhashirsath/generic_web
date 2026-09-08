@@ -1,0 +1,6 @@
+{
+  "name": "genericMed - B2B Health OS & Generic Medicine Platform",
+  "description": "Production-grade multi-tenant generic medicine platform featuring real-time price comparison, clinical micro-hub dispensing queue, FDA bioequivalence catalog, and schema-isolated infrastructure.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
