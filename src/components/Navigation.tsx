@@ -1,20 +1,27 @@
 import React, { useState } from 'react';
-import { AppViewMode } from '../types';
+import { AppViewMode, UserAccount } from '../types';
 
 interface NavigationProps {
   currentView: AppViewMode;
   onSelectView: (view: AppViewMode) => void;
   cartCount: number;
+  currentUser: UserAccount | null;
+  onOpenAuth: () => void;
+  onLogout: () => void;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
   currentView,
   onSelectView,
   cartCount,
+  currentUser,
+  onOpenAuth,
+  onLogout,
 }) => {
   const [showTenantMenu, setShowTenantMenu] = useState(false);
   const [activeTenant, setActiveTenant] = useState('MediQuick Pharmacy #042 (Austin Node)');
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
 
   const navItems: { id: AppViewMode; label: string; icon: string; badge?: string }[] = [
     { id: 'clinical-os', label: 'Clinical Health OS', icon: 'local_pharmacy', badge: '18 Live' },
@@ -24,6 +31,7 @@ export const Navigation: React.FC<NavigationProps> = ({
     { id: 'salt-mapping', label: 'Salt Arbitrage Engine', icon: 'schema' },
     { id: 'infrastructure', label: 'DB Schema Isolation', icon: 'dns', badge: '148 Nodes' },
     { id: 'architecture-prd', label: 'Architecture & PRD', icon: 'account_tree' },
+    { id: 'auth', label: currentUser ? 'My Account' : 'Login / Register', icon: 'lock', badge: currentUser ? 'Auth' : 'Sign In' },
   ];
 
   return (
@@ -178,15 +186,107 @@ export const Navigation: React.FC<NavigationProps> = ({
             )}
           </div>
 
-          {/* Quick Doctor / Dispenser badge */}
-          <div className="flex items-center gap-2.5 pl-2 border-l border-slate-200">
-            <div className="w-9 h-9 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-800 font-bold text-xs">
-              AT
-            </div>
-            <div className="hidden sm:block text-left">
-              <div className="text-xs font-bold text-slate-900 leading-tight">Dr. Aris Thorne, PharmD</div>
-              <div className="text-[11px] text-slate-500 leading-tight">Lead Clinical Dispenser</div>
-            </div>
+          {/* Dynamic User Profile or Sign In Button */}
+          <div className="relative pl-2 border-l border-slate-200">
+            {currentUser ? (
+              <div>
+                <button
+                  onClick={() => setShowUserMenu(!showUserMenu)}
+                  className="flex items-center gap-2.5 p-1 rounded-xl hover:bg-slate-100 transition-all cursor-pointer group text-left"
+                  title="Account Profile & Settings"
+                >
+                  <div className="w-9 h-9 rounded-full bg-emerald-100 border border-emerald-300 flex items-center justify-center text-emerald-800 font-black text-xs shadow-xs group-hover:scale-105 transition-transform">
+                    {currentUser.avatar || 'GM'}
+                  </div>
+                  <div className="hidden sm:block">
+                    <div className="text-xs font-bold text-slate-900 leading-tight flex items-center gap-1">
+                      <span>{currentUser.name}</span>
+                      <span className="material-symbols-outlined text-xs text-slate-400">expand_more</span>
+                    </div>
+                    <div className="text-[10px] text-slate-500 leading-tight">
+                      {currentUser.role === 'pharmacist'
+                        ? 'PharmD Dispenser'
+                        : currentUser.role === 'patient'
+                        ? 'Patient Account'
+                        : 'Wholesale Partner'}
+                    </div>
+                  </div>
+                </button>
+
+                {/* User Profile Popover Menu */}
+                {showUserMenu && (
+                  <div className="absolute right-0 mt-2 w-72 bg-white border border-slate-200 rounded-2xl shadow-2xl p-3 z-50 text-xs animate-in fade-in zoom-in-95 duration-150">
+                    <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-200/80 mb-2.5">
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-[10px] uppercase font-bold text-slate-400">Active Node Session</span>
+                        <span className="bg-emerald-100 text-emerald-800 text-[9px] font-black px-1.5 py-0.2 rounded uppercase">
+                          {currentUser.role}
+                        </span>
+                      </div>
+                      <div className="font-bold text-slate-900 text-xs">{currentUser.name}</div>
+                      <div className="text-[11px] text-slate-500 truncate">{currentUser.email}</div>
+                      {currentUser.npiNumber && (
+                        <div className="text-[10px] text-slate-600 font-mono mt-1">
+                          NPI: {currentUser.npiNumber} ({currentUser.licenseState || 'TX Active'})
+                        </div>
+                      )}
+                      {currentUser.patientId && (
+                        <div className="text-[10px] text-slate-600 font-mono mt-1">
+                          Patient ID: {currentUser.patientId}
+                        </div>
+                      )}
+                      {currentUser.facilityName && (
+                        <div className="text-[10px] text-slate-500 mt-0.5 truncate">
+                          Facility: {currentUser.facilityName}
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <button
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onOpenAuth();
+                        }}
+                        className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-slate-100 flex items-center justify-between text-slate-700 font-semibold cursor-pointer"
+                      >
+                        <div className="flex items-center gap-2">
+                          <span className="material-symbols-outlined text-base text-slate-500">manage_accounts</span>
+                          <span>Switch Role / Account</span>
+                        </div>
+                        <span className="text-[10px] text-slate-400">Login</span>
+                      </button>
+
+                      <div className="px-2.5 py-1.5 rounded-lg bg-emerald-50/50 border border-emerald-100 text-[10px] text-emerald-800 flex items-center gap-1.5">
+                        <span className="material-symbols-outlined text-xs text-emerald-600">verified_user</span>
+                        <span>HIPAA 2FA Cryptographic Session Active</span>
+                      </div>
+
+                      <div className="border-t border-slate-100 my-1 pt-1">
+                        <button
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            onLogout();
+                          }}
+                          className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-rose-50 text-rose-600 font-bold flex items-center gap-2 cursor-pointer transition-colors"
+                        >
+                          <span className="material-symbols-outlined text-base">logout</span>
+                          <span>Sign Out</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-xs flex items-center gap-1.5 transition-all cursor-pointer"
+              >
+                <span className="material-symbols-outlined text-base">login</span>
+                <span>Sign In / Register</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

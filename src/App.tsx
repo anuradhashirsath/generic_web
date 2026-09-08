@@ -4,7 +4,7 @@
  */
 
 import React, { useState } from 'react';
-import { AppViewMode, CartItem } from './types';
+import { AppViewMode, CartItem, UserAccount } from './types';
 import { Navigation } from './components/Navigation';
 import { ClinicalHealthOS } from './components/ClinicalHealthOS';
 import { CatalogBioequivalence } from './components/CatalogBioequivalence';
@@ -13,9 +13,43 @@ import { ConsumerApp } from './components/ConsumerApp';
 import { EnterpriseAnalytics } from './components/EnterpriseAnalytics';
 import { SaltMappingEngine } from './components/SaltMappingEngine';
 import { ArchitectureViewer } from './components/ArchitectureViewer';
+import { AuthScreen, DEMO_ACCOUNTS } from './components/AuthScreen';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<AppViewMode>('clinical-os');
+
+  // Active Authenticated User Session (persisted in localStorage)
+  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
+    try {
+      const stored = localStorage.getItem('genericmed_auth_user');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch {
+      // Ignore parse failure
+    }
+    // Default to Patient demo account for instant clinical and mobile access
+    return DEMO_ACCOUNTS.patient;
+  });
+
+  const handleLogin = (user: UserAccount) => {
+    setCurrentUser(user);
+    try {
+      localStorage.setItem('genericmed_auth_user', JSON.stringify(user));
+    } catch {
+      // LocalStorage fallback
+    }
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('genericmed_auth_user');
+    } catch {
+      // LocalStorage fallback
+    }
+    setCurrentView('auth');
+  };
   
   // Pre-seed cart with items from Image 13 (Atorvastatin 20mg & Esomeprazole 40mg)
   const [cart, setCart] = useState<CartItem[]>([
@@ -62,10 +96,22 @@ export default function App() {
         currentView={currentView}
         onSelectView={(v) => setCurrentView(v)}
         cartCount={cart.length}
+        currentUser={currentUser}
+        onOpenAuth={() => setCurrentView('auth')}
+        onLogout={handleLogout}
       />
 
       {/* Main Viewport Container */}
       <main className="flex-1">
+        {currentView === 'auth' && (
+          <AuthScreen
+            currentUser={currentUser}
+            onLogin={handleLogin}
+            onLogout={handleLogout}
+            onNavigate={(v) => setCurrentView(v)}
+            onClose={() => setCurrentView(currentUser?.role === 'pharmacist' ? 'clinical-os' : 'consumer-web')}
+          />
+        )}
         {currentView === 'clinical-os' && <ClinicalHealthOS />}
         {currentView === 'catalog-bioeq' && <CatalogBioequivalence />}
         {currentView === 'infrastructure' && <InfrastructureCore />}
@@ -74,6 +120,8 @@ export default function App() {
             cart={cart}
             onAddToCart={handleAddToCart}
             onClearCart={handleClearCart}
+            currentUser={currentUser}
+            onOpenAuth={() => setCurrentView('auth')}
           />
         )}
         {currentView === 'enterprise-analytics' && <EnterpriseAnalytics />}
@@ -95,6 +143,12 @@ export default function App() {
 
           <div className="flex items-center gap-4 text-[11px]">
             <span className="text-slate-400">Switch View:</span>
+            <button
+              onClick={() => setCurrentView('auth')}
+              className="hover:text-emerald-600 font-semibold cursor-pointer text-emerald-700"
+            >
+              {currentUser ? 'My Account' : 'Login / Register'}
+            </button>
             <button
               onClick={() => setCurrentView('clinical-os')}
               className="hover:text-emerald-600 font-semibold cursor-pointer"

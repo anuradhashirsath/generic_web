@@ -5,7 +5,26 @@ export type AppViewMode =
   | 'consumer-web' 
   | 'enterprise-analytics' 
   | 'salt-mapping' 
-  | 'architecture-prd';
+  | 'architecture-prd'
+  | 'auth';
+
+export type UserRole = 'patient' | 'pharmacist' | 'wholesaler';
+
+export interface UserAccount {
+  id: string;
+  name: string;
+  email: string;
+  role: UserRole;
+  phone?: string;
+  avatar?: string;
+  patientId?: string;
+  dob?: string;
+  npiNumber?: string;
+  licenseState?: string;
+  facilityName?: string;
+  createdAt: string;
+  twoFactorEnabled?: boolean;
+}
 
 export type ConsumerSubView = 'compare' | 'medicine-details' | 'rx-vault' | 'cart';
 

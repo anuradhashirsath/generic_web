@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ConsumerMedicine, ConsumerSubView, CartItem, PriceAlert, PrescriptionRecord } from '../types';
+import { ConsumerMedicine, ConsumerSubView, CartItem, PriceAlert, PrescriptionRecord, UserAccount } from '../types';
 import { CONSUMER_MEDICINES, PRESCRIPTION_RECORDS } from '../data/mockData';
 import { PrescriptionScanModal } from './modals/PrescriptionScanModal';
 import { SetPriceAlertModal } from './modals/SetPriceAlertModal';
@@ -14,12 +14,16 @@ interface ConsumerAppProps {
   cart: CartItem[];
   onAddToCart: (item: CartItem) => void;
   onClearCart: () => void;
+  currentUser?: UserAccount | null;
+  onOpenAuth?: () => void;
 }
 
 export const ConsumerApp: React.FC<ConsumerAppProps> = ({
   cart,
   onAddToCart,
   onClearCart,
+  currentUser,
+  onOpenAuth,
 }) => {
   const [subView, setSubView] = useState<ConsumerSubView>('compare');
   const [isMobileFrame, setIsMobileFrame] = useState(false);
@@ -338,6 +342,30 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({
                 </span>
               )}
             </button>
+
+            {/* Quick Profile / Sign In Indicator */}
+            {currentUser ? (
+              <button
+                onClick={onOpenAuth}
+                className="flex items-center gap-1.5 p-1 pl-1.5 rounded-lg bg-emerald-50 border border-emerald-200 text-emerald-900 text-xs font-bold hover:bg-emerald-100 transition-colors cursor-pointer"
+                title={`Logged in as ${currentUser.name} (${currentUser.role})`}
+              >
+                <span className="hidden sm:inline text-[11px] font-bold text-emerald-800">
+                  {currentUser.name.split(' ')[0]}
+                </span>
+                <div className="w-6 h-6 rounded-full bg-emerald-600 text-white flex items-center justify-center text-[10px] font-black">
+                  {currentUser.avatar || 'PT'}
+                </div>
+              </button>
+            ) : (
+              <button
+                onClick={onOpenAuth}
+                className="px-2 py-1 bg-slate-900 hover:bg-slate-800 text-white rounded-lg text-xs font-bold flex items-center gap-1 cursor-pointer transition-colors"
+              >
+                <span className="material-symbols-outlined text-sm">login</span>
+                <span>Sign In</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1223,6 +1251,17 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({
           >
             <span className="material-symbols-outlined text-xl">savings</span>
             <span className="text-[10px]">Savings</span>
+          </button>
+          <button
+            onClick={() => onOpenAuth && onOpenAuth()}
+            className="flex flex-col items-center gap-1 text-xs text-slate-400 hover:text-emerald-700 cursor-pointer"
+          >
+            <span className="material-symbols-outlined text-xl">
+              {currentUser ? 'account_circle' : 'login'}
+            </span>
+            <span className="text-[10px]">
+              {currentUser ? (currentUser.role === 'patient' ? 'Profile' : 'Account') : 'Sign In'}
+            </span>
           </button>
         </div>
       </div>
