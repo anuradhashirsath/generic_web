@@ -1,13 +1,72 @@
 import React, { useState } from 'react';
-import { AppViewMode, UserAccount } from '../types';
+import { AppViewMode, ConsumerSubView, UserAccount, NormalizedRole, normalizeRole } from '../types';
+
+export interface NavItemConfig {
+  id: AppViewMode;
+  subView?: ConsumerSubView;
+  label: string;
+  icon: string;
+  badge?: string;
+}
+
+export const ROLE_NAVIGATION: Record<NormalizedRole, NavItemConfig[]> = {
+  patient: [
+    { id: 'consumer-web', subView: 'compare', label: 'Home', icon: 'home' },
+    { id: 'consumer-web', subView: 'medicine-details', label: 'Medicines', icon: 'search' },
+    { id: 'consumer-web', subView: 'compare', label: 'Compare Prices', icon: 'compare_arrows' },
+    { id: 'consumer-web', subView: 'cart', label: 'Orders', icon: 'shopping_bag' },
+    { id: 'consumer-web', subView: 'rx-vault', label: 'Prescriptions', icon: 'prescriptions' },
+    { id: 'auth', label: 'Profile', icon: 'person' },
+  ],
+  wholesaler: [
+    { id: 'catalog-bioeq', label: 'Dashboard', icon: 'dashboard' },
+    { id: 'catalog-bioeq', label: 'Inventory', icon: 'inventory_2', badge: 'Lots Active' },
+    { id: 'catalog-bioeq', label: 'Orders', icon: 'local_shipping' },
+    { id: 'salt-mapping', label: 'Products', icon: 'medication_liquid' },
+    { id: 'catalog-bioeq', label: 'Suppliers', icon: 'factory' },
+    { id: 'enterprise-analytics', label: 'Analytics', icon: 'analytics' },
+    { id: 'auth', label: 'Profile', icon: 'person' },
+  ],
+  doctor: [
+    { id: 'clinical-os', label: 'Dashboard', icon: 'dashboard' },
+    { id: 'clinical-os', label: 'Patients', icon: 'groups', badge: '18 Active' },
+    { id: 'clinical-os', label: 'Prescriptions', icon: 'note_alt' },
+    { id: 'clinical-os', label: 'Appointments', icon: 'calendar_clock' },
+    { id: 'architecture-prd', label: 'Medical Records', icon: 'folder_shared' },
+    { id: 'auth', label: 'Profile', icon: 'person' },
+  ],
+  admin: [
+    { id: 'infrastructure', label: 'Dashboard', icon: 'admin_panel_settings', badge: '148 Nodes' },
+    { id: 'infrastructure', label: 'Tenant Schema Isolation', icon: 'dns' },
+    { id: 'enterprise-analytics', label: 'Platform Analytics', icon: 'insights' },
+    { id: 'salt-mapping', label: 'Salt Arbitrage Engine', icon: 'schema' },
+    { id: 'architecture-prd', label: 'Architecture & PRD', icon: 'account_tree' },
+    { id: 'auth', label: 'Profile', icon: 'person' },
+  ],
+};
+
+export const ROLE_ALLOWED_VIEWS: Record<NormalizedRole, AppViewMode[]> = {
+  patient: ['consumer-web', 'auth'],
+  wholesaler: ['catalog-bioeq', 'salt-mapping', 'enterprise-analytics', 'auth'],
+  doctor: ['clinical-os', 'architecture-prd', 'auth'],
+  admin: ['infrastructure', 'enterprise-analytics', 'salt-mapping', 'architecture-prd', 'auth'],
+};
+
+export const ROLE_DEFAULT_VIEW: Record<NormalizedRole, AppViewMode> = {
+  patient: 'consumer-web',
+  wholesaler: 'catalog-bioeq',
+  doctor: 'clinical-os',
+  admin: 'infrastructure',
+};
 
 interface NavigationProps {
   currentView: AppViewMode;
-  onSelectView: (view: AppViewMode) => void;
+  onSelectView: (view: AppViewMode, subView?: ConsumerSubView) => void;
   cartCount: number;
   currentUser: UserAccount | null;
   onOpenAuth: () => void;
   onLogout: () => void;
+  activePatientSubView?: ConsumerSubView;
 }
 
 export const Navigation: React.FC<NavigationProps> = ({
@@ -17,6 +76,7 @@ export const Navigation: React.FC<NavigationProps> = ({
   currentUser,
   onOpenAuth,
   onLogout,
+  activePatientSubView,
 }) => {
   const [showTenantMenu, setShowTenantMenu] = useState(false);
   const [activeTenant, setActiveTenant] = useState('MediQuick Pharmacy #042 (Austin Node)');
@@ -24,27 +84,19 @@ export const Navigation: React.FC<NavigationProps> = ({
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navItems: { id: AppViewMode; label: string; icon: string; badge?: string }[] = [
-    { id: 'clinical-os', label: 'Clinical Health OS', icon: 'local_pharmacy', badge: '18 Live' },
-    { id: 'catalog-bioeq', label: 'Bioequivalence Catalog', icon: 'science' },
-    { id: 'consumer-web', label: 'Patient Mobile Web', icon: 'smartphone', badge: cartCount > 0 ? `${cartCount}` : undefined },
-    { id: 'enterprise-analytics', label: 'Platform Analytics', icon: 'insights' },
-    { id: 'salt-mapping', label: 'Salt Arbitrage Engine', icon: 'schema' },
-    { id: 'infrastructure', label: 'DB Schema Isolation', icon: 'dns', badge: '148 Nodes' },
-    { id: 'architecture-prd', label: 'Architecture & PRD', icon: 'account_tree' },
-    { id: 'auth', label: currentUser ? 'My Account' : 'Login / Register', icon: 'lock', badge: currentUser ? 'Auth' : 'Sign In' },
-  ];
+  const activeRole: NormalizedRole = normalizeRole(currentUser?.role);
+  const navItems = ROLE_NAVIGATION[activeRole] || ROLE_NAVIGATION.patient;
 
   return (
     <>
       {/* ========================================================================= */}
-      {/* DESKTOP / TABLET LEFT SIDEBAR NAVIGATION (Visible on lg screens and up)   */}
+      {/* DESKTOP / TABLET LEFT SIDEBAR NAVIGATION                                   */}
       {/* ========================================================================= */}
       <aside className="hidden lg:flex flex-col justify-between w-64 xl:w-72 h-screen sticky top-0 bg-slate-900 border-r border-slate-800 text-white z-40 overflow-y-auto shrink-0 select-none">
         <div className="p-4 space-y-5">
           {/* Brand Identity Header */}
           <div 
-            onClick={() => onSelectView('clinical-os')}
+            onClick={() => onSelectView(ROLE_DEFAULT_VIEW[activeRole])}
             className="flex items-center gap-3 cursor-pointer group p-2 rounded-2xl hover:bg-slate-850 transition-colors"
           >
             <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center text-slate-950 font-black shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform">
@@ -56,7 +108,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                   generic<span className="text-emerald-400">Med</span>
                 </span>
                 <span className="bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 text-[9px] font-black px-1.5 py-0.2 rounded uppercase">
-                  B2B Health OS
+                  {activeRole} OS
                 </span>
               </div>
               <p className="text-[10px] text-slate-400 leading-none mt-0.5">
@@ -82,16 +134,20 @@ export const Navigation: React.FC<NavigationProps> = ({
 
           {/* Vertical Sidebar Navigation Menu */}
           <nav className="space-y-1">
-            <div className="px-3 pb-1 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-              Core Modules & Apps
+            <div className="px-3 pb-1 text-[10px] font-extrabold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+              <span>{activeRole.toUpperCase()} NAVIGATION</span>
+              <span className="text-[9px] text-emerald-400 font-mono">RBAC Filtered</span>
             </div>
 
-            {navItems.map((item) => {
-              const isActive = currentView === item.id;
+            {navItems.map((item, index) => {
+              const isViewMatch = currentView === item.id;
+              const isSubViewMatch = item.subView ? activePatientSubView === item.subView : true;
+              const isActive = isViewMatch && isSubViewMatch;
+
               return (
                 <button
-                  key={item.id}
-                  onClick={() => onSelectView(item.id)}
+                  key={`${item.id}-${item.label}-${index}`}
+                  onClick={() => onSelectView(item.id, item.subView)}
                   className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     isActive
                       ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/10 text-emerald-400 border-l-4 border-emerald-400 shadow-xs'
@@ -120,45 +176,10 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         {/* Sidebar Bottom Controls: Tenant Context & User Account */}
         <div className="p-4 border-t border-slate-800/80 space-y-3 bg-slate-950/60">
-          {/* Operational Alerts Trigger */}
-          <div className="relative">
-            <button
-              onClick={() => setShowNotifications(!showNotifications)}
-              className="w-full flex items-center justify-between p-2 rounded-xl bg-slate-900 hover:bg-slate-850 border border-slate-800 text-xs text-slate-300 transition-colors cursor-pointer"
-            >
-              <div className="flex items-center gap-2">
-                <span className="material-symbols-outlined text-base text-amber-400">notifications</span>
-                <span className="font-bold">Operational Alerts</span>
-              </div>
-              <span className="bg-rose-500/20 text-rose-300 border border-rose-500/30 text-[10px] font-black px-1.5 py-0.2 rounded-full">
-                3 New
-              </span>
-            </button>
-
-            {showNotifications && (
-              <div className="absolute bottom-12 left-0 w-72 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl p-3 z-50 text-xs text-slate-200">
-                <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
-                  <span className="font-bold text-white">System Alerts</span>
-                  <span className="text-[10px] bg-rose-500 text-slate-950 font-black px-2 py-0.5 rounded-full">3 Critical</span>
-                </div>
-                <div className="space-y-2">
-                  <div className="p-2 rounded-xl bg-amber-950/40 border border-amber-500/40 text-amber-200">
-                    <p className="font-bold text-[11px]">Cold Vault Alert (CHILL-V-02)</p>
-                    <p className="text-[10px] opacity-90">Temp 3.8°C stable. Lot audit due.</p>
-                  </div>
-                  <div className="p-2 rounded-xl bg-emerald-950/40 border border-emerald-500/40 text-emerald-200">
-                    <p className="font-bold text-[11px]">Cipla CoA Lot #CP-2025-0819</p>
-                    <p className="text-[10px] opacity-90">Atorvastatin 20mg cleared QC.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-
           {/* Active Tenant Context Dropdown */}
           <div className="relative">
             <label className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider block mb-1">
-              Tenant Schema Context
+              Active Tenant Context
             </label>
             <button
               onClick={() => setShowTenantMenu(!showTenantMenu)}
@@ -213,7 +234,9 @@ export const Navigation: React.FC<NavigationProps> = ({
                   </div>
                   <div className="truncate">
                     <div className="text-xs font-bold text-white truncate">{currentUser.name}</div>
-                    <div className="text-[10px] text-emerald-400 capitalize font-medium">{currentUser.role} Account</div>
+                    <div className="text-[10px] text-emerald-400 uppercase tracking-wider font-mono font-bold">
+                      {activeRole}
+                    </div>
                   </div>
                 </div>
                 <span className="material-symbols-outlined text-xs text-slate-400">unfold_more</span>
@@ -234,7 +257,7 @@ export const Navigation: React.FC<NavigationProps> = ({
                     className="w-full text-left px-2 py-1.5 rounded-lg hover:bg-slate-800 text-slate-300 text-xs font-bold flex items-center gap-2 cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-sm">manage_accounts</span>
-                    <span>Switch Role / Account</span>
+                    <span>Account Profile</span>
                   </button>
 
                   <button
@@ -263,12 +286,12 @@ export const Navigation: React.FC<NavigationProps> = ({
       </aside>
 
       {/* ========================================================================= */}
-      {/* MOBILE TOP HEADER & SLIDE-OVER DRAWER (Visible on < lg screens)           */}
+      {/* MOBILE TOP HEADER & DRAWER                                                */}
       {/* ========================================================================= */}
       <header className="lg:hidden bg-slate-900 text-white border-b border-slate-800 sticky top-0 z-40">
         <div className="px-4 py-3 flex items-center justify-between">
           <div 
-            onClick={() => onSelectView('clinical-os')}
+            onClick={() => onSelectView(ROLE_DEFAULT_VIEW[activeRole])}
             className="flex items-center gap-2 cursor-pointer"
           >
             <div className="w-8 h-8 rounded-lg bg-emerald-500 flex items-center justify-center text-slate-950 font-black text-sm">
@@ -309,12 +332,15 @@ export const Navigation: React.FC<NavigationProps> = ({
 
         {/* Mobile Horizontal Subnav Strip */}
         <div className="overflow-x-auto scrollbar-none flex items-center gap-1.5 px-4 py-2 bg-slate-950 border-t border-slate-800 text-xs">
-          {navItems.map((item) => {
-            const isActive = currentView === item.id;
+          {navItems.map((item, index) => {
+            const isViewMatch = currentView === item.id;
+            const isSubViewMatch = item.subView ? activePatientSubView === item.subView : true;
+            const isActive = isViewMatch && isSubViewMatch;
+
             return (
               <button
-                key={item.id}
-                onClick={() => onSelectView(item.id)}
+                key={`mobile-${item.id}-${item.label}-${index}`}
+                onClick={() => onSelectView(item.id, item.subView)}
                 className={`flex items-center gap-1 px-3 py-1.5 rounded-lg font-bold whitespace-nowrap cursor-pointer ${
                   isActive
                     ? 'bg-emerald-500 text-slate-950 shadow-xs'
@@ -323,13 +349,6 @@ export const Navigation: React.FC<NavigationProps> = ({
               >
                 <span className="material-symbols-outlined text-xs">{item.icon}</span>
                 <span>{item.label}</span>
-                {item.badge && (
-                  <span className={`text-[9px] px-1.5 py-0.2 rounded-full ${
-                    isActive ? 'bg-slate-950 text-emerald-400 font-black' : 'bg-slate-700 text-slate-300'
-                  }`}>
-                    {item.badge}
-                  </span>
-                )}
               </button>
             );
           })}

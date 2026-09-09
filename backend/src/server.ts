@@ -6,6 +6,8 @@ import { TenantModel } from './models/Tenant.js';
 import { DispenseQueueModel } from './models/DispenseQueue.js';
 import { MedicineModel } from './models/Medicine.js';
 import authRouter from './routes/auth.js';
+import { authMiddleware } from './middleware/authMiddleware.js';
+import { requireRoles } from './middleware/roleMiddleware.js';
 
 dotenv.config();
 

@@ -8,7 +8,28 @@ export type AppViewMode =
   | 'architecture-prd'
   | 'auth';
 
-export type UserRole = 'patient' | 'pharmacist' | 'wholesaler' | 'admin';
+export type UserRole = 'patient' | 'doctor' | 'pharmacist' | 'wholesaler' | 'admin';
+
+export type NormalizedRole = 'patient' | 'doctor' | 'wholesaler' | 'admin';
+
+/**
+ * Safely normalizes raw backend/user role strings to canonical roles.
+ */
+export function normalizeRole(rawRole?: string): NormalizedRole {
+  if (!rawRole) return 'patient';
+  const lower = rawRole.toLowerCase().trim();
+  if (lower.includes('doctor') || lower.includes('pharm') || lower.includes('clinician')) {
+    return 'doctor';
+  }
+  if (lower.includes('wholesale') || lower.includes('manufacturer') || lower.includes('supplier')) {
+    return 'wholesaler';
+  }
+  if (lower.includes('admin') || lower.includes('super')) {
+    return 'admin';
+  }
+  return 'patient';
+}
+
 
 
 export interface UserAccount {

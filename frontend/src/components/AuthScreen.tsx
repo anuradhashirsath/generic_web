@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { UserAccount, UserRole, AppViewMode } from '../types';
+import { UserAccount, UserRole, AppViewMode, normalizeRole } from '../types';
 import { apiService } from '../utils/apiService';
+import { ROLE_DEFAULT_VIEW } from './Navigation';
 
 
 interface AuthScreenProps {
@@ -132,13 +133,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     setSuccessToast(`Signed in as ${userToLogin.name} (${userToLogin.role.toUpperCase()})`);
 
     // Auto-navigate to appropriate hub
-    if (userToLogin.role === 'patient') {
-      onNavigate('consumer-web');
-    } else if (userToLogin.role === 'pharmacist') {
-      onNavigate('clinical-os');
-    } else {
-      onNavigate('catalog-bioeq');
-    }
+    onNavigate(ROLE_DEFAULT_VIEW[normalizeRole(userToLogin.role)]);
   };
 
   const handleLoginSubmit = async (e: React.FormEvent) => {
@@ -165,14 +160,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       onLogin(apiRes.user);
       setIsSubmitting(false);
       setSuccessToast(`Welcome back, ${apiRes.user.name}!`);
-
-      if (apiRes.user.role === 'patient') {
-        onNavigate('consumer-web');
-      } else if (apiRes.user.role === 'pharmacist') {
-        onNavigate('clinical-os');
-      } else {
-        onNavigate('catalog-bioeq');
-      }
+      onNavigate(ROLE_DEFAULT_VIEW[normalizeRole(apiRes.user.role)]);
       return;
     }
 
@@ -204,14 +192,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     onLogin(authenticatedUser);
     setIsSubmitting(false);
     setSuccessToast(`Welcome back, ${authenticatedUser.name}!`);
-
-    if (authenticatedUser.role === 'patient') {
-      onNavigate('consumer-web');
-    } else if (authenticatedUser.role === 'pharmacist') {
-      onNavigate('clinical-os');
-    } else {
-      onNavigate('catalog-bioeq');
-    }
+    onNavigate(ROLE_DEFAULT_VIEW[normalizeRole(authenticatedUser.role)]);
   };
 
   const handleRegisterSubmit = async (e: React.FormEvent) => {
@@ -262,14 +243,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       onLogin(apiRes.user);
       setIsSubmitting(false);
       setSuccessToast(`Account created! Welcome to genericMed, ${apiRes.user.name}.`);
-
-      if (apiRes.user.role === 'patient') {
-        onNavigate('consumer-web');
-      } else if (apiRes.user.role === 'pharmacist') {
-        onNavigate('clinical-os');
-      } else {
-        onNavigate('catalog-bioeq');
-      }
+      onNavigate(ROLE_DEFAULT_VIEW[normalizeRole(apiRes.user.role)]);
       return;
     }
 
@@ -311,14 +285,7 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
     onLogin(newUser);
     setIsSubmitting(false);
     setSuccessToast(`Account created! Welcome to genericMed, ${newUser.name}.`);
-
-    if (newUser.role === 'patient') {
-      onNavigate('consumer-web');
-    } else if (newUser.role === 'pharmacist') {
-      onNavigate('clinical-os');
-    } else {
-      onNavigate('catalog-bioeq');
-    }
+    onNavigate(ROLE_DEFAULT_VIEW[normalizeRole(newUser.role)]);
   };
 
 

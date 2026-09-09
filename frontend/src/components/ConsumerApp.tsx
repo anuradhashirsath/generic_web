@@ -16,6 +16,7 @@ interface ConsumerAppProps {
   onClearCart: () => void;
   currentUser?: UserAccount | null;
   onOpenAuth?: () => void;
+  activeSubView?: ConsumerSubView;
 }
 
 export const ConsumerApp: React.FC<ConsumerAppProps> = ({
@@ -24,8 +25,16 @@ export const ConsumerApp: React.FC<ConsumerAppProps> = ({
   onClearCart,
   currentUser,
   onOpenAuth,
+  activeSubView,
 }) => {
-  const [subView, setSubView] = useState<ConsumerSubView>('compare');
+  const [subView, setSubView] = useState<ConsumerSubView>(activeSubView || 'compare');
+
+  React.useEffect(() => {
+    if (activeSubView) {
+      setSubView(activeSubView);
+    }
+  }, [activeSubView]);
+
   const [isMobileFrame, setIsMobileFrame] = useState(false);
   const [selectedMedicine, setSelectedMedicine] = useState<ConsumerMedicine>(CONSUMER_MEDICINES[0]);
   const [selectedPackIndex, setSelectedPackIndex] = useState(1); // 30 tabs

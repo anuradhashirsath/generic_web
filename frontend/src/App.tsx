@@ -3,9 +3,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState } from 'react';
-import { AppViewMode, CartItem, UserAccount } from './types';
-import { Navigation } from './components/Navigation';
+import React, { useState, useEffect } from 'react';
+import { AppViewMode, CartItem, ConsumerSubView, UserAccount, normalizeRole } from './types';
+import { Navigation, ROLE_ALLOWED_VIEWS, ROLE_DEFAULT_VIEW } from './components/Navigation';
 import { ClinicalHealthOS } from './components/ClinicalHealthOS';
 import { CatalogBioequivalence } from './components/CatalogBioequivalence';
 import { InfrastructureCore } from './components/InfrastructureCore';
@@ -17,11 +17,35 @@ import { AuthScreen } from './components/AuthScreen';
 import { AuthProvider, useAuth } from './context/AuthContext';
 
 function AppContent() {
-  const [currentView, setCurrentView] = useState<AppViewMode>('clinical-os');
   const { currentUser, setCurrentUser, logout: authLogout } = useAuth();
+  const activeRole = normalizeRole(currentUser?.role);
+  
+  const [currentView, setCurrentView] = useState<AppViewMode>(() => ROLE_DEFAULT_VIEW[activeRole] || 'consumer-web');
+  const [patientSubView, setPatientSubView] = useState<ConsumerSubView>('compare');
+
+  // Enforce Route-Level Authorization Guard
+  useEffect(() => {
+    if (currentView === 'auth') return;
+    const allowedViews = ROLE_ALLOWED_VIEWS[activeRole];
+    if (allowedViews && !allowedViews.includes(currentView)) {
+      console.warn(
+        `[genericMed RBAC Guard] Unauthorized view attempt '${currentView}' for role '${activeRole}'. Redirecting to default hub '${ROLE_DEFAULT_VIEW[activeRole]}'.`
+      );
+      setCurrentView(ROLE_DEFAULT_VIEW[activeRole]);
+    }
+  }, [currentUser, currentView, activeRole]);
+
+  const handleSelectView = (view: AppViewMode, subView?: ConsumerSubView) => {
+    if (subView) {
+      setPatientSubView(subView);
+    }
+    setCurrentView(view);
+  };
 
   const handleLogin = (user: UserAccount) => {
     setCurrentUser(user);
+    const targetRole = normalizeRole(user.role);
+    setCurrentView(ROLE_DEFAULT_VIEW[targetRole]);
   };
 
   const handleLogout = async () => {
@@ -67,16 +91,19 @@ function AppContent() {
     setCart([]);
   };
 
+  const allowedViews = ROLE_ALLOWED_VIEWS[activeRole];
+
   return (
     <div className="min-h-screen flex flex-col lg:flex-row bg-slate-100 font-sans text-slate-900 selection:bg-emerald-500 selection:text-white">
       {/* Left Sidebar Navigation */}
       <Navigation
         currentView={currentView}
-        onSelectView={(v) => setCurrentView(v)}
+        onSelectView={handleSelectView}
         cartCount={cart.length}
         currentUser={currentUser}
         onOpenAuth={() => setCurrentView('auth')}
         onLogout={handleLogout}
+        activePatientSubView={patientSubView}
       />
 
       {/* Main Right Content Region */}
@@ -88,24 +115,27 @@ function AppContent() {
               onLogin={handleLogin}
               onLogout={handleLogout}
               onNavigate={(v) => setCurrentView(v)}
-              onClose={() => setCurrentView(currentUser?.role === 'pharmacist' ? 'clinical-os' : 'consumer-web')}
+              onClose={() => setCurrentView(ROLE_DEFAULT_VIEW[activeRole])}
             />
           )}
-          {currentView === 'clinical-os' && <ClinicalHealthOS />}
-          {currentView === 'catalog-bioeq' && <CatalogBioequivalence />}
-          {currentView === 'infrastructure' && <InfrastructureCore />}
-          {currentView === 'consumer-web' && (
+
+          {/* Role Protected View Renders */}
+          {currentView === 'clinical-os' && allowedViews.includes('clinical-os') && <ClinicalHealthOS />}
+          {currentView === 'catalog-bioeq' && allowedViews.includes('catalog-bioeq') && <CatalogBioequivalence />}
+          {currentView === 'infrastructure' && allowedViews.includes('infrastructure') && <InfrastructureCore />}
+          {currentView === 'consumer-web' && allowedViews.includes('consumer-web') && (
             <ConsumerApp
               cart={cart}
               onAddToCart={handleAddToCart}
               onClearCart={handleClearCart}
               currentUser={currentUser}
               onOpenAuth={() => setCurrentView('auth')}
+              activeSubView={patientSubView}
             />
           )}
-          {currentView === 'enterprise-analytics' && <EnterpriseAnalytics />}
-          {currentView === 'salt-mapping' && <SaltMappingEngine />}
-          {currentView === 'architecture-prd' && <ArchitectureViewer />}
+          {currentView === 'enterprise-analytics' && allowedViews.includes('enterprise-analytics') && <EnterpriseAnalytics />}
+          {currentView === 'salt-mapping' && allowedViews.includes('salt-mapping') && <SaltMappingEngine />}
+          {currentView === 'architecture-prd' && allowedViews.includes('architecture-prd') && <ArchitectureViewer />}
         </main>
 
         {/* Global Application Sticky Footer */}
@@ -113,7 +143,7 @@ function AppContent() {
           <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
             <div className="flex items-center gap-2">
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-              <span className="font-bold text-slate-800">genericMed Production Health OS</span>
+              <span className="font-bold text-slate-800">genericMed Health OS ({activeRole.toUpperCase()})</span>
               <span className="text-slate-400">|</span>
               <span>21 CFR Part 11 & GxP Validated</span>
               <span className="text-slate-400">|</span>
@@ -121,36 +151,13 @@ function AppContent() {
             </div>
 
             <div className="flex items-center gap-4 text-[11px]">
-              <span className="text-slate-400">Switch View:</span>
+              <span className="text-slate-400">Account Role:</span>
+              <span className="font-bold text-emerald-700 uppercase font-mono">{activeRole}</span>
               <button
                 onClick={() => setCurrentView('auth')}
                 className="hover:text-emerald-600 font-semibold cursor-pointer text-emerald-700"
               >
-                {currentUser ? `Account (${currentUser.name})` : 'Login / Register'}
-              </button>
-              <button
-                onClick={() => setCurrentView('clinical-os')}
-                className="hover:text-emerald-600 font-semibold cursor-pointer"
-              >
-                Dispensing Queue
-              </button>
-              <button
-                onClick={() => setCurrentView('catalog-bioeq')}
-                className="hover:text-emerald-600 font-semibold cursor-pointer"
-              >
-                Manufacturer Catalog
-              </button>
-              <button
-                onClick={() => setCurrentView('consumer-web')}
-                className="hover:text-emerald-600 font-semibold cursor-pointer"
-              >
-                Patient Mobile Web
-              </button>
-              <button
-                onClick={() => setCurrentView('architecture-prd')}
-                className="hover:text-emerald-600 font-semibold cursor-pointer"
-              >
-                System PRD Specs
+                {currentUser ? `Profile (${currentUser.name})` : 'Login / Register'}
               </button>
             </div>
           </div>
