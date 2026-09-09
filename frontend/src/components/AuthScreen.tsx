@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { UserAccount, UserRole, AppViewMode } from '../types';
+import { apiService } from '../utils/apiService';
+
 
 interface AuthScreenProps {
   currentUser: UserAccount | null;
@@ -48,7 +50,19 @@ export const DEMO_ACCOUNTS: Record<UserRole, UserAccount> = {
     createdAt: '2024-07-15',
     twoFactorEnabled: true,
   },
+  admin: {
+    id: 'usr-admin-1',
+    name: 'System Admin',
+    email: 'admin@genericmed.health',
+    role: 'admin',
+    phone: '+1 (800) 555-0199',
+    avatar: 'AD',
+    facilityName: 'genericMed Health OS Platform Core',
+    createdAt: '2024-01-01',
+    twoFactorEnabled: true,
+  },
 };
+
 
 export const AuthScreen: React.FC<AuthScreenProps> = ({
   currentUser,
@@ -101,27 +115,33 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
   const passwordStrength = getPasswordStrength(regPassword);
 
-  const handleQuickDemoLogin = (role: UserRole) => {
+  const handleQuickDemoLogin = async (role: UserRole) => {
     setIsSubmitting(true);
     setErrorMessage(null);
-    setTimeout(() => {
-      const demoUser = DEMO_ACCOUNTS[role];
-      onLogin(demoUser);
-      setIsSubmitting(false);
-      setSuccessToast(`Signed in as ${demoUser.name} (${demoUser.role.toUpperCase()})`);
-      
-      // Auto-navigate to appropriate hub
-      if (role === 'patient') {
-        onNavigate('consumer-web');
-      } else if (role === 'pharmacist') {
-        onNavigate('clinical-os');
-      } else {
-        onNavigate('catalog-bioeq');
-      }
-    }, 400);
+    const demoUser = DEMO_ACCOUNTS[role];
+
+    // Attempt live API login for demo account
+    const apiRes = await apiService.login({
+      email: demoUser.email,
+      password: 'GenericMed#2026',
+    });
+
+    const userToLogin = apiRes.success && apiRes.user ? apiRes.user : demoUser;
+    onLogin(userToLogin);
+    setIsSubmitting(false);
+    setSuccessToast(`Signed in as ${userToLogin.name} (${userToLogin.role.toUpperCase()})`);
+
+    // Auto-navigate to appropriate hub
+    if (userToLogin.role === 'patient') {
+      onNavigate('consumer-web');
+    } else if (userToLogin.role === 'pharmacist') {
+      onNavigate('clinical-os');
+    } else {
+      onNavigate('catalog-bioeq');
+    }
   };
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -136,48 +156,65 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      // Find matching demo or create authenticated session
-      let matchedRole: UserRole = selectedRole;
-      if (loginIdentifier.includes('aris') || loginIdentifier.includes('rx') || loginIdentifier.includes('pharm')) {
-        matchedRole = 'pharmacist';
-      } else if (loginIdentifier.includes('cipla') || loginIdentifier.includes('supply') || loginIdentifier.includes('wholesale')) {
-        matchedRole = 'wholesaler';
-      }
+    const apiRes = await apiService.login({
+      email: loginIdentifier.trim(),
+      password: loginPassword,
+    });
 
-      const existingDemo = DEMO_ACCOUNTS[matchedRole];
-      const authenticatedUser: UserAccount = {
-        id: `usr-${Date.now()}`,
-        name: existingDemo.name,
-        email: loginIdentifier.includes('@') ? loginIdentifier : `${loginIdentifier}@healthmail.com`,
-        role: matchedRole,
-        phone: existingDemo.phone,
-        avatar: existingDemo.avatar,
-        patientId: existingDemo.patientId,
-        dob: existingDemo.dob,
-        npiNumber: existingDemo.npiNumber,
-        licenseState: existingDemo.licenseState,
-        facilityName: existingDemo.facilityName,
-        createdAt: new Date().toISOString().split('T')[0],
-        twoFactorEnabled: rememberMe,
-      };
-
-      onLogin(authenticatedUser);
+    if (apiRes.success && apiRes.user) {
+      onLogin(apiRes.user);
       setIsSubmitting(false);
-      setSuccessToast(`Welcome back, ${authenticatedUser.name}!`);
+      setSuccessToast(`Welcome back, ${apiRes.user.name}!`);
 
-      // Route
-      if (authenticatedUser.role === 'patient') {
+      if (apiRes.user.role === 'patient') {
         onNavigate('consumer-web');
-      } else if (authenticatedUser.role === 'pharmacist') {
+      } else if (apiRes.user.role === 'pharmacist') {
         onNavigate('clinical-os');
       } else {
         onNavigate('catalog-bioeq');
       }
-    }, 600);
+      return;
+    }
+
+    // Fallback if offline mode
+    let matchedRole: UserRole = selectedRole;
+    if (loginIdentifier.includes('aris') || loginIdentifier.includes('rx') || loginIdentifier.includes('pharm')) {
+      matchedRole = 'pharmacist';
+    } else if (loginIdentifier.includes('cipla') || loginIdentifier.includes('supply') || loginIdentifier.includes('wholesale')) {
+      matchedRole = 'wholesaler';
+    }
+
+    const existingDemo = DEMO_ACCOUNTS[matchedRole];
+    const authenticatedUser: UserAccount = {
+      id: `usr-${Date.now()}`,
+      name: existingDemo.name,
+      email: loginIdentifier.includes('@') ? loginIdentifier : `${loginIdentifier}@healthmail.com`,
+      role: matchedRole,
+      phone: existingDemo.phone,
+      avatar: existingDemo.avatar,
+      patientId: existingDemo.patientId,
+      dob: existingDemo.dob,
+      npiNumber: existingDemo.npiNumber,
+      licenseState: existingDemo.licenseState,
+      facilityName: existingDemo.facilityName,
+      createdAt: new Date().toISOString().split('T')[0],
+      twoFactorEnabled: rememberMe,
+    };
+
+    onLogin(authenticatedUser);
+    setIsSubmitting(false);
+    setSuccessToast(`Welcome back, ${authenticatedUser.name}!`);
+
+    if (authenticatedUser.role === 'patient') {
+      onNavigate('consumer-web');
+    } else if (authenticatedUser.role === 'pharmacist') {
+      onNavigate('clinical-os');
+    } else {
+      onNavigate('catalog-bioeq');
+    }
   };
 
-  const handleRegisterSubmit = (e: React.FormEvent) => {
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMessage(null);
 
@@ -202,7 +239,6 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
       return;
     }
 
-    // Role-specific validation
     if (selectedRole === 'pharmacist' && !regNpi.trim()) {
       setErrorMessage('NPI (National Provider Identifier) is mandatory for clinical dispensing access.');
       return;
@@ -210,48 +246,81 @@ export const AuthScreen: React.FC<AuthScreenProps> = ({
 
     setIsSubmitting(true);
 
-    setTimeout(() => {
-      const initials = regName
-        .split(' ')
-        .map((n) => n[0])
-        .slice(0, 2)
-        .join('')
-        .toUpperCase();
+    const apiRes = await apiService.register({
+      name: regName.trim(),
+      email: regEmail.trim(),
+      password: regPassword,
+      role: selectedRole,
+      phone: regPhone,
+      dob: regDob,
+      npiNumber: regNpi,
+      licenseState: regLicense,
+      facilityName: selectedRole === 'pharmacist' ? regFacility : selectedRole === 'wholesaler' ? regCompanyName : undefined,
+    });
 
-      const newUser: UserAccount = {
-        id: `usr-${Date.now()}`,
-        name: regName.trim(),
-        email: regEmail.trim(),
-        role: selectedRole,
-        phone: regPhone || '+1 (512) 555-0100',
-        avatar: initials || 'GM',
-        patientId: selectedRole === 'patient' ? `PT-${Math.floor(1000 + Math.random() * 9000)}-TX` : undefined,
-        dob: regDob || (selectedRole === 'patient' ? 'Jan 1, 1990' : undefined),
-        npiNumber: selectedRole === 'pharmacist' ? regNpi || '1849204819' : undefined,
-        licenseState: selectedRole === 'pharmacist' ? regLicense || 'TX - Valid' : undefined,
-        facilityName:
-          selectedRole === 'pharmacist'
-            ? regFacility || 'MediQuick Pharmacy Hub #042'
-            : selectedRole === 'wholesaler'
-            ? regCompanyName || 'Cipla Bio-Generics Inc.'
-            : 'Austin Community Node #042',
-        createdAt: new Date().toISOString().split('T')[0],
-        twoFactorEnabled: true,
-      };
-
-      onLogin(newUser);
+    if (apiRes.success && apiRes.user) {
+      onLogin(apiRes.user);
       setIsSubmitting(false);
-      setSuccessToast(`Account created! Welcome to genericMed, ${newUser.name}.`);
+      setSuccessToast(`Account created! Welcome to genericMed, ${apiRes.user.name}.`);
 
-      if (newUser.role === 'patient') {
+      if (apiRes.user.role === 'patient') {
         onNavigate('consumer-web');
-      } else if (newUser.role === 'pharmacist') {
+      } else if (apiRes.user.role === 'pharmacist') {
         onNavigate('clinical-os');
       } else {
         onNavigate('catalog-bioeq');
       }
-    }, 700);
+      return;
+    }
+
+    if (apiRes.error) {
+      setErrorMessage(apiRes.error);
+      setIsSubmitting(false);
+      return;
+    }
+
+    // Local Fallback
+    const initials = regName
+      .split(' ')
+      .map((n) => n[0])
+      .slice(0, 2)
+      .join('')
+      .toUpperCase();
+
+    const newUser: UserAccount = {
+      id: `usr-${Date.now()}`,
+      name: regName.trim(),
+      email: regEmail.trim(),
+      role: selectedRole,
+      phone: regPhone || '+1 (512) 555-0100',
+      avatar: initials || 'GM',
+      patientId: selectedRole === 'patient' ? `PT-${Math.floor(1000 + Math.random() * 9000)}-TX` : undefined,
+      dob: regDob || (selectedRole === 'patient' ? 'Jan 1, 1990' : undefined),
+      npiNumber: selectedRole === 'pharmacist' ? regNpi || '1849204819' : undefined,
+      licenseState: selectedRole === 'pharmacist' ? regLicense || 'TX - Valid' : undefined,
+      facilityName:
+        selectedRole === 'pharmacist'
+          ? regFacility || 'MediQuick Pharmacy Hub #042'
+          : selectedRole === 'wholesaler'
+          ? regCompanyName || 'Cipla Bio-Generics Inc.'
+          : 'Austin Community Node #042',
+      createdAt: new Date().toISOString().split('T')[0],
+      twoFactorEnabled: true,
+    };
+
+    onLogin(newUser);
+    setIsSubmitting(false);
+    setSuccessToast(`Account created! Welcome to genericMed, ${newUser.name}.`);
+
+    if (newUser.role === 'patient') {
+      onNavigate('consumer-web');
+    } else if (newUser.role === 'pharmacist') {
+      onNavigate('clinical-os');
+    } else {
+      onNavigate('catalog-bioeq');
+    }
   };
+
 
   const handleSendResetEmail = (e: React.FormEvent) => {
     e.preventDefault();

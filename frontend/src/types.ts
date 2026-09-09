@@ -8,7 +8,8 @@ export type AppViewMode =
   | 'architecture-prd'
   | 'auth';
 
-export type UserRole = 'patient' | 'pharmacist' | 'wholesaler';
+export type UserRole = 'patient' | 'pharmacist' | 'wholesaler' | 'admin';
+
 
 export interface UserAccount {
   id: string;

@@ -13,45 +13,23 @@ import { ConsumerApp } from './components/ConsumerApp';
 import { EnterpriseAnalytics } from './components/EnterpriseAnalytics';
 import { SaltMappingEngine } from './components/SaltMappingEngine';
 import { ArchitectureViewer } from './components/ArchitectureViewer';
-import { AuthScreen, DEMO_ACCOUNTS } from './components/AuthScreen';
+import { AuthScreen } from './components/AuthScreen';
+import { AuthProvider, useAuth } from './context/AuthContext';
 
-export default function App() {
+function AppContent() {
   const [currentView, setCurrentView] = useState<AppViewMode>('clinical-os');
-
-  // Active Authenticated User Session (persisted in localStorage)
-  const [currentUser, setCurrentUser] = useState<UserAccount | null>(() => {
-    try {
-      const stored = localStorage.getItem('genericmed_auth_user');
-      if (stored) {
-        return JSON.parse(stored);
-      }
-    } catch {
-      // Ignore parse failure
-    }
-    // Default to Patient demo account for instant clinical and mobile access
-    return DEMO_ACCOUNTS.patient;
-  });
+  const { currentUser, setCurrentUser, logout: authLogout } = useAuth();
 
   const handleLogin = (user: UserAccount) => {
     setCurrentUser(user);
-    try {
-      localStorage.setItem('genericmed_auth_user', JSON.stringify(user));
-    } catch {
-      // LocalStorage fallback
-    }
   };
 
-  const handleLogout = () => {
-    setCurrentUser(null);
-    try {
-      localStorage.removeItem('genericmed_auth_user');
-    } catch {
-      // LocalStorage fallback
-    }
+  const handleLogout = async () => {
+    await authLogout();
     setCurrentView('auth');
   };
   
-  // Pre-seed cart with items from Image 13 (Atorvastatin 20mg & Esomeprazole 40mg)
+  // Pre-seed cart with initial sample items
   const [cart, setCart] = useState<CartItem[]>([
     {
       medicineId: 'med-1',
@@ -130,54 +108,62 @@ export default function App() {
           {currentView === 'architecture-prd' && <ArchitectureViewer />}
         </main>
 
-      {/* Global Application Sticky Footer */}
-      <footer className="bg-white border-t border-slate-200 py-3 px-4 sm:px-8 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
-            <span className="font-bold text-slate-800">genericMed Production Health OS</span>
-            <span className="text-slate-400">|</span>
-            <span>21 CFR Part 11 & GxP Validated</span>
-            <span className="text-slate-400">|</span>
-            <span className="font-mono text-[11px] text-slate-400">Austin Micro-Hub #042</span>
-          </div>
+        {/* Global Application Sticky Footer */}
+        <footer className="bg-white border-t border-slate-200 py-3 px-4 sm:px-8 text-xs text-slate-500">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
+              <span className="font-bold text-slate-800">genericMed Production Health OS</span>
+              <span className="text-slate-400">|</span>
+              <span>21 CFR Part 11 & GxP Validated</span>
+              <span className="text-slate-400">|</span>
+              <span className="font-mono text-[11px] text-slate-400">Austin Micro-Hub #042</span>
+            </div>
 
-          <div className="flex items-center gap-4 text-[11px]">
-            <span className="text-slate-400">Switch View:</span>
-            <button
-              onClick={() => setCurrentView('auth')}
-              className="hover:text-emerald-600 font-semibold cursor-pointer text-emerald-700"
-            >
-              {currentUser ? 'My Account' : 'Login / Register'}
-            </button>
-            <button
-              onClick={() => setCurrentView('clinical-os')}
-              className="hover:text-emerald-600 font-semibold cursor-pointer"
-            >
-              Dispensing Queue
-            </button>
-            <button
-              onClick={() => setCurrentView('catalog-bioeq')}
-              className="hover:text-emerald-600 font-semibold cursor-pointer"
-            >
-              Manufacturer Catalog
-            </button>
-            <button
-              onClick={() => setCurrentView('consumer-web')}
-              className="hover:text-emerald-600 font-semibold cursor-pointer"
-            >
-              Patient Mobile Web
-            </button>
-            <button
-              onClick={() => setCurrentView('architecture-prd')}
-              className="hover:text-emerald-600 font-semibold cursor-pointer"
-            >
-              System PRD Specs
-            </button>
+            <div className="flex items-center gap-4 text-[11px]">
+              <span className="text-slate-400">Switch View:</span>
+              <button
+                onClick={() => setCurrentView('auth')}
+                className="hover:text-emerald-600 font-semibold cursor-pointer text-emerald-700"
+              >
+                {currentUser ? `Account (${currentUser.name})` : 'Login / Register'}
+              </button>
+              <button
+                onClick={() => setCurrentView('clinical-os')}
+                className="hover:text-emerald-600 font-semibold cursor-pointer"
+              >
+                Dispensing Queue
+              </button>
+              <button
+                onClick={() => setCurrentView('catalog-bioeq')}
+                className="hover:text-emerald-600 font-semibold cursor-pointer"
+              >
+                Manufacturer Catalog
+              </button>
+              <button
+                onClick={() => setCurrentView('consumer-web')}
+                className="hover:text-emerald-600 font-semibold cursor-pointer"
+              >
+                Patient Mobile Web
+              </button>
+              <button
+                onClick={() => setCurrentView('architecture-prd')}
+                className="hover:text-emerald-600 font-semibold cursor-pointer"
+              >
+                System PRD Specs
+              </button>
+            </div>
           </div>
-        </div>
-      </footer>
+        </footer>
       </div>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }

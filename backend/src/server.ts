@@ -1,6 +1,11 @@
 import express, { Request, Response } from 'express';
 import dotenv from 'dotenv';
-import path from 'path';
+import cookieParser from 'cookie-parser';
+import { connectDB, isDbConnected } from './db.js';
+import { TenantModel } from './models/Tenant.js';
+import { DispenseQueueModel } from './models/DispenseQueue.js';
+import { MedicineModel } from './models/Medicine.js';
+import authRouter from './routes/auth.js';
 
 dotenv.config();
 
@@ -8,11 +13,28 @@ const app = express();
 const PORT = process.env.PORT || 3001;
 
 app.use(express.json({ limit: '10mb' }));
+app.use(cookieParser());
 
-// CORS Header Setup
+// Permissive Production & Development CORS setup
+const ALLOWED_ORIGINS = [
+  'https://generic-web-sigma.vercel.app',
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:3000',
+  process.env.FRONTEND_URL,
+].filter(Boolean) as string[];
+
 app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', '*');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, X-Tenant-ID');
+  const origin = req.headers.origin;
+  if (origin && (ALLOWED_ORIGINS.includes(origin) || origin.endsWith('.vercel.app'))) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else if (!origin) {
+    res.header('Access-Control-Allow-Origin', '*');
+  } else {
+    res.header('Access-Control-Allow-Origin', origin);
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Tenant-ID');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
   if (req.method === 'OPTIONS') {
     return res.sendStatus(200);
@@ -20,19 +42,47 @@ app.use((req, res, next) => {
   next();
 });
 
-// 1. Health & GxP Validation Check
+// Root Health Check Route
+app.get('/', (req: Request, res: Response) => {
+  res.json({
+    status: 'ok',
+    service: 'genericMed backend',
+  });
+});
+
+// Authentication API Router
+app.use('/api/auth', authRouter);
+
+// Initialize MongoDB Atlas connection
+connectDB().catch((err) => console.error('MongoDB Atlas connect error:', err));
+
+// 1. Health & GxP Validation Check (Includes MongoDB Status)
 app.get('/api/health', (req: Request, res: Response) => {
   res.json({
     status: 'ok',
     system: 'genericMed B2B Health OS Engine',
-    version: '1.2.0',
+    version: '1.3.0',
     gxpCompliance: '21 CFR Part 11 Validated',
+    database: isDbConnected() ? 'MongoDB Atlas Connected' : 'Mock Fallback Mode',
     timestamp: new Date().toISOString(),
   });
 });
 
-// 2. Multi-Tenant Schema Isolation Metrics Endpoint
-app.get('/api/tenants', (req: Request, res: Response) => {
+
+// 2. Multi-Tenant Schema Isolation Metrics Endpoint (MongoDB Atlas)
+app.get('/api/tenants', async (req: Request, res: Response) => {
+  try {
+    if (isDbConnected()) {
+      const tenants = await TenantModel.find().lean();
+      if (tenants.length > 0) {
+        return res.json(tenants);
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching tenants from MongoDB Atlas, using fallback:', err);
+  }
+
+  // Fallback state
   res.json([
     {
       id: 'tenant-1',
@@ -67,8 +117,20 @@ app.get('/api/tenants', (req: Request, res: Response) => {
   ]);
 });
 
-// 3. Micro-Hub Dispensing Queue Endpoint
-app.get('/api/dispense-queue', (req: Request, res: Response) => {
+// 3. Micro-Hub Dispensing Queue Endpoint (MongoDB Atlas)
+app.get('/api/dispense-queue', async (req: Request, res: Response) => {
+  try {
+    if (isDbConnected()) {
+      const queue = await DispenseQueueModel.find().lean();
+      if (queue.length > 0) {
+        return res.json(queue);
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching queue from MongoDB Atlas, using fallback:', err);
+  }
+
+  // Fallback state
   res.json([
     {
       id: 'q-1',
@@ -98,7 +160,22 @@ app.get('/api/dispense-queue', (req: Request, res: Response) => {
   ]);
 });
 
-// 4. Real-time Server-Sent Events (SSE) Stream for Dispensing Queue
+// 4. Generic Medicines Catalog Endpoint (MongoDB Atlas)
+app.get('/api/medicines', async (req: Request, res: Response) => {
+  try {
+    if (isDbConnected()) {
+      const medicines = await MedicineModel.find().lean();
+      if (medicines.length > 0) {
+        return res.json(medicines);
+      }
+    }
+  } catch (err) {
+    console.warn('Error fetching medicines from MongoDB Atlas:', err);
+  }
+  res.json([]);
+});
+
+// 5. Real-time Server-Sent Events (SSE) Stream for Dispensing Queue
 app.get('/api/dispense-queue/stream', (req: Request, res: Response) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
@@ -113,7 +190,7 @@ app.get('/api/dispense-queue/stream', (req: Request, res: Response) => {
   });
 });
 
-// 5. Payment Checkout Intent Endpoint
+// 6. Payment Checkout Intent Endpoint
 app.post('/api/stripe/checkout-session', (req: Request, res: Response) => {
   const { amount, paymentMethod } = req.body;
   res.json({

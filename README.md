@@ -9,7 +9,12 @@
 ```
 genericMed/
 ├── frontend/                  # React 19 + TypeScript + Vite + Tailwind CSS v4
-│   ├── src/                   # React components, pages, utils, types, mock data
+│   ├── src/
+│   │   ├── components/        # UI components & AuthScreen
+│   │   ├── context/           # AuthContext (React Auth Provider)
+│   │   ├── utils/             # apiService.ts (API client & JWT headers)
+│   │   ├── types.ts           # Domain models & UserRole definition
+│   │   └── App.tsx            # Main App layout wrapped in AuthProvider
 │   ├── public/                # Static public assets
 │   ├── index.html             # HTML entry point
 │   ├── vite.config.ts         # Vite configuration with /api backend proxy
@@ -17,16 +22,20 @@ genericMed/
 │   ├── package.json           # Frontend dependencies
 │   └── .env                   # VITE_API_BASE_URL=http://localhost:3001/api
 │
-├── backend/                   # Express REST API + SSE + Database Engine
+├── backend/                   # Express REST API + MongoDB Atlas + JWT Auth Engine
 │   ├── src/
-│   │   ├── server.ts          # Express API endpoints & SSE stream handlers
-│   │   └── schema.sql         # PostgreSQL schema definition & RLS policies
+│   │   ├── server.ts          # Express API endpoints & middleware setup
+│   │   ├── db.ts              # MongoDB Atlas connection & auto-seeder
+│   │   ├── models/            # Mongoose Schemas (User, Tenant, DispenseQueue, Medicine)
+│   │   ├── routes/            # Auth API routes (/api/auth)
+│   │   ├── middleware/        # authMiddleware (JWT verification) & roleMiddleware (RBAC)
+│   │   └── utils/             # Input validators (validateRegisterInput, validateLoginInput)
 │   ├── tsconfig.json          # Backend Node.js TypeScript configuration
 │   ├── package.json           # Backend dependencies
-│   └── .env                   # PORT=3001, NODE_ENV=development
+│   └── .env                   # PORT, MONGODB_URI, JWT_SECRET, JWT_EXPIRES_IN
 │
 ├── package.json               # Root monorepo orchestration & concurrent runner
-├── README.md                  # System setup & startup documentation
+├── README.md                  # System setup & authentication documentation
 └── .gitignore                 # Monorepo git ignore rules
 ```
 
@@ -36,7 +45,7 @@ genericMed/
 
 ### 1. Installing Dependencies
 
-You can install all dependencies across the entire monorepo in one command from the root directory:
+Install all dependencies across the entire monorepo in one command from the root directory:
 
 ```bash
 npm run install:all
@@ -58,20 +67,21 @@ npm install
 
 ### 2. Environment Setup
 
-Copy `.env.example` to `.env` in both `frontend` and `backend` subdirectories:
+Copy `.env.example` to `.env` in `backend/`:
 
-```bash
-# Frontend Environment Variable (frontend/.env)
-VITE_API_BASE_URL=http://localhost:3001/api
-
+```env
 # Backend Environment Variables (backend/.env)
 PORT=3001
 NODE_ENV=development
+MONGODB_URI=mongodb+srv://anuradhashirsath6_db_user:hpA4SYWsPxG1dLoz@cluster0.qc5umqq.mongodb.net/genericmed?retryWrites=true&w=majority&appName=Cluster0
+JWT_SECRET=super_secret_jwt_key_genericmed_2026_production
+JWT_EXPIRES_IN=7d
+FRONTEND_URL=http://localhost:3000
 ```
 
 ---
 
-### 3. Running Frontend and Backend Together (Recommended)
+### 3. Running Frontend and Backend Together
 
 From the root directory, run:
 
@@ -83,46 +93,53 @@ This launches both the **Express Backend Server** (Port `3001`) and **Vite Front
 
 ---
 
-### 4. Running Frontend and Backend Independently
+## Authentication & Security System
 
-#### Option A: Root Orchestrator Shortcuts
-- **Backend Only**: `npm run dev:backend`
-- **Frontend Only**: `npm run dev:frontend`
+The system implements full-stack JWT authentication, password hashing, and Role-Based Access Control (RBAC).
 
-#### Option B: Direct Subfolder Execution
-```bash
-# Start Backend Express API (Port 3001)
-cd backend
-npm run dev
+### Key Features
+1. **Password Hashing**: Passwords are automatically hashed using `bcryptjs` (10 rounds) via Mongoose pre-save hooks.
+2. **JWT Authorization**: Issued via HTTP-Only cookies & Bearer tokens valid for 7 days.
+3. **Role-Based Access Control (RBAC)**: Supports 4 roles: `patient`, `pharmacist`, `wholesaler`, `admin`.
+4. **Input Validation**: Sanitizes emails, enforces password length/complexity, and verifies mandatory role credentials (e.g. NPI for pharmacists).
+5. **Session Persistence**: React `AuthContext` verifies current token on application load via `GET /api/auth/me`.
 
-# Start Frontend React App (Port 3000)
-cd frontend
-npm run dev
-```
+### Default Authenticated Accounts
+The backend automatically seeds these accounts into MongoDB Atlas on startup with password `GenericMed#2026`:
+
+| Role | Email | Default Password | Access Hub |
+|---|---|---|---|
+| **Patient** | `sarah.jenkins@healthmail.com` | `GenericMed#2026` | Patient Mobile Web & Savings |
+| **Pharmacist** | `aris.thorne@mediquick-rx.com` | `GenericMed#2026` | Dispensing Queue & Clinical OS |
+| **Wholesaler** | `supply.lead@cipla-generics.com` | `GenericMed#2026` | ANDA Catalog & Supply Chain |
+| **Admin** | `admin@genericmed.health` | `GenericMed#2026` | Health OS Core Platform |
 
 ---
 
-### 5. Building for Production
+## API Endpoints Reference
 
-To build both frontend and backend for production deployment:
+### Authentication Endpoints (`/api/auth`)
+- `POST /api/auth/register`: Create a new user account with role validation.
+- `POST /api/auth/login`: Authenticate email/identifier & password, returns JWT token.
+- `POST /api/auth/logout`: Invalidate session and clear auth cookies.
+- `GET /api/auth/me`: Fetch currently authenticated user profile (Protected by `authMiddleware`).
+
+### System & Business Endpoints
+- `GET /api/health`: 21 CFR Part 11 & GxP validation status + MongoDB connection check.
+- `GET /api/tenants`: Multi-tenant schema isolation metrics.
+- `GET /api/dispense-queue`: Real-time micro-hub pharmacy dispensing queue.
+- `GET /api/medicines`: Generic medicine catalog bioequivalence records.
+- `GET /api/dispense-queue/stream`: Server-Sent Events (SSE) live updates.
+- `POST /api/stripe/checkout-session`: Checkout payment processing intent.
+
+---
+
+## Verification & Build
 
 ```bash
+# Verify backend TypeScript compilation
+npm run lint --prefix backend
+
+# Build frontend and backend for production
 npm run build
 ```
-
-Individual build commands:
-- **Build Frontend**: `npm run build:frontend`
-- **Build Backend**: `npm run build:backend`
-
----
-
-## API & Backend Integration Details
-
-- **Backend Express Server**: Runs on `http://localhost:3001`
-  - `GET /api/health`: 21 CFR Part 11 & GxP health check.
-  - `GET /api/tenants`: Multi-tenant schema isolation metrics.
-  - `GET /api/dispense-queue`: Real-time pharmacy micro-hub dispatch queue.
-  - `GET /api/dispense-queue/stream`: Server-Sent Events (SSE) live updates.
-  - `POST /api/stripe/checkout-session`: Payment gateway intent.
-
-- **Vite Dev Proxy**: `frontend/vite.config.ts` proxies all requests to `/api` directly to `http://localhost:3001`.
