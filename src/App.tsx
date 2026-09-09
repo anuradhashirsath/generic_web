@@ -90,8 +90,8 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-100 font-sans text-slate-900 selection:bg-emerald-500 selection:text-white">
-      {/* Top Global Navigation with View Mode Switcher */}
+    <div className="min-h-screen flex flex-col lg:flex-row bg-slate-100 font-sans text-slate-900 selection:bg-emerald-500 selection:text-white">
+      {/* Left Sidebar Navigation */}
       <Navigation
         currentView={currentView}
         onSelectView={(v) => setCurrentView(v)}
@@ -101,33 +101,34 @@ export default function App() {
         onLogout={handleLogout}
       />
 
-      {/* Main Viewport Container */}
-      <main className="flex-1">
-        {currentView === 'auth' && (
-          <AuthScreen
-            currentUser={currentUser}
-            onLogin={handleLogin}
-            onLogout={handleLogout}
-            onNavigate={(v) => setCurrentView(v)}
-            onClose={() => setCurrentView(currentUser?.role === 'pharmacist' ? 'clinical-os' : 'consumer-web')}
-          />
-        )}
-        {currentView === 'clinical-os' && <ClinicalHealthOS />}
-        {currentView === 'catalog-bioeq' && <CatalogBioequivalence />}
-        {currentView === 'infrastructure' && <InfrastructureCore />}
-        {currentView === 'consumer-web' && (
-          <ConsumerApp
-            cart={cart}
-            onAddToCart={handleAddToCart}
-            onClearCart={handleClearCart}
-            currentUser={currentUser}
-            onOpenAuth={() => setCurrentView('auth')}
-          />
-        )}
-        {currentView === 'enterprise-analytics' && <EnterpriseAnalytics />}
-        {currentView === 'salt-mapping' && <SaltMappingEngine />}
-        {currentView === 'architecture-prd' && <ArchitectureViewer />}
-      </main>
+      {/* Main Right Content Region */}
+      <div className="flex-1 flex flex-col min-w-0 min-h-screen">
+        <main className="flex-1">
+          {currentView === 'auth' && (
+            <AuthScreen
+              currentUser={currentUser}
+              onLogin={handleLogin}
+              onLogout={handleLogout}
+              onNavigate={(v) => setCurrentView(v)}
+              onClose={() => setCurrentView(currentUser?.role === 'pharmacist' ? 'clinical-os' : 'consumer-web')}
+            />
+          )}
+          {currentView === 'clinical-os' && <ClinicalHealthOS />}
+          {currentView === 'catalog-bioeq' && <CatalogBioequivalence />}
+          {currentView === 'infrastructure' && <InfrastructureCore />}
+          {currentView === 'consumer-web' && (
+            <ConsumerApp
+              cart={cart}
+              onAddToCart={handleAddToCart}
+              onClearCart={handleClearCart}
+              currentUser={currentUser}
+              onOpenAuth={() => setCurrentView('auth')}
+            />
+          )}
+          {currentView === 'enterprise-analytics' && <EnterpriseAnalytics />}
+          {currentView === 'salt-mapping' && <SaltMappingEngine />}
+          {currentView === 'architecture-prd' && <ArchitectureViewer />}
+        </main>
 
       {/* Global Application Sticky Footer */}
       <footer className="bg-white border-t border-slate-200 py-3 px-4 sm:px-8 text-xs text-slate-500">
@@ -176,6 +177,7 @@ export default function App() {
           </div>
         </div>
       </footer>
+      </div>
     </div>
   );
 }
