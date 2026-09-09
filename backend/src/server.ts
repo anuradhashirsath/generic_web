@@ -128,8 +128,17 @@ app.post('/api/stripe/checkout-session', (req: Request, res: Response) => {
 
 // Start Server if executed directly
 if (process.env.NODE_ENV !== 'test') {
-  app.listen(PORT, () => {
+  const server = app.listen(PORT, () => {
     console.log(`[genericMed Engine] Backend Express Server listening on port ${PORT}`);
+  });
+
+  server.on('error', (err: any) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`[genericMed Engine Error] Port ${PORT} is already in use by another process.`);
+      console.error(`To resolve: Close the process on port ${PORT} or change PORT in backend/.env`);
+    } else {
+      console.error('[genericMed Engine Error]', err);
+    }
   });
 }
 
