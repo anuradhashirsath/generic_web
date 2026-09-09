@@ -8,7 +8,8 @@
     "dev:all": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\"",
     "dev:frontend": "npm run dev --prefix frontend",
     "dev:backend": "npm run dev --prefix backend",
-    "build": "npm run build:frontend && npm run build:backend",
+    "build": "npm run build:frontend && npm run build:backend && node -e \"import fs from 'fs'; fs.cpSync('frontend/dist', 'dist', {recursive: true});\"",
+
     "build:frontend": "npm run build --prefix frontend",
     "build:backend": "npm run build --prefix backend",
     "lint": "npm run lint --prefix frontend && npm run lint --prefix backend",
