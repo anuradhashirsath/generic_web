@@ -5,6 +5,9 @@ import { MedicineModel } from './models/Medicine.js';
 import { UserModel } from './models/User.js';
 
 
+const DEFAULT_MONGODB_URI =
+  'mongodb+srv://anuradhashirsath6_db_user:hpA4SYWsPxG1dLoz@cluster0.qc5umqq.mongodb.net/genericmed?retryWrites=true&w=majority&appName=Cluster0';
+
 let isConnected = false;
 
 export async function connectDB(): Promise<boolean> {
@@ -12,12 +15,7 @@ export async function connectDB(): Promise<boolean> {
     return true;
   }
 
-  const mongodbUri = process.env.MONGODB_URI;
-
-  if (!mongodbUri) {
-    console.warn('[genericMed DB Warning] MONGODB_URI environment variable not defined.');
-    return false;
-  }
+  const mongodbUri = process.env.MONGODB_URI || DEFAULT_MONGODB_URI;
 
   try {
     await mongoose.connect(mongodbUri, {
@@ -26,6 +24,7 @@ export async function connectDB(): Promise<boolean> {
     });
     isConnected = true;
     console.log('[genericMed DB] Successfully connected to MongoDB Atlas!');
+
 
 
     // Run initial seed check
