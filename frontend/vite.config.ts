@@ -17,23 +17,5 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1600,
-    rollupOptions: {
-      output: {
-        manualChunks(id) {
-          if (id.includes('node_modules')) {
-            if (id.includes('react') || id.includes('react-dom')) {
-              return 'react-vendor';
-            }
-            if (id.includes('recharts')) {
-              return 'chart-vendor';
-            }
-            if (id.includes('jspdf')) {
-              return 'pdf-vendor';
-            }
-            return 'ui-vendor';
-          }
-        },
-      },
-    },
   },
 });
